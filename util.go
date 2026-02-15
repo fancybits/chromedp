@@ -11,6 +11,7 @@ import (
 
 	"github.com/chromedp/cdproto"
 	"github.com/chromedp/cdproto/cdp"
+	"slices"
 )
 
 // forceIP tries to force the host component in urlstr to be an IP address.
@@ -104,7 +105,7 @@ func modifyURL(ctx context.Context, urlstr string) (string, error) {
 	}
 	defer resp.Body.Close()
 
-	var result map[string]interface{}
+	var result map[string]any
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return "", err
 	}
@@ -119,12 +120,12 @@ func modifyURL(ctx context.Context, urlstr string) (string, error) {
 	return wsURL, nil
 }
 
-func runListeners(list []cancelableListener, ev interface{}) []cancelableListener {
+func runListeners(list []cancelableListener, ev any) []cancelableListener {
 	for i := 0; i < len(list); {
 		listener := list[i]
 		select {
 		case <-listener.ctx.Done():
-			list = append(list[:i], list[i+1:]...)
+			list = slices.Delete(list, i, i+1)
 			continue
 		default:
 			listener.fn(ev)
@@ -402,7 +403,7 @@ func removeNode(n []*cdp.Node, id cdp.NodeID) []*cdp.Node {
 		return n
 	}
 
-	return append(n[:i], n[i+1:]...)
+	return slices.Delete(n, i, i+1)
 }
 
 // isCouldNotComputeBoxModelError unwraps err as a MessageError and determines

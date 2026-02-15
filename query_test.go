@@ -527,7 +527,6 @@ func TestClear(t *testing.T) {
 	}
 
 	for i, test := range tests {
-		test := test
 		t.Run(fmt.Sprintf("%02d", i), func(t *testing.T) {
 			t.Parallel()
 
@@ -571,7 +570,6 @@ func TestReset(t *testing.T) {
 	}
 
 	for i, test := range tests {
-		test := test
 		t.Run(fmt.Sprintf("%02d", i), func(t *testing.T) {
 			t.Parallel()
 
@@ -654,7 +652,6 @@ func TestSetValue(t *testing.T) {
 	}
 
 	for i, test := range tests {
-		test := test
 		t.Run(fmt.Sprintf("%02d", i), func(t *testing.T) {
 			t.Parallel()
 
@@ -859,7 +856,6 @@ func TestSetAttributes(t *testing.T) {
 	}
 
 	for i, test := range tests {
-		test := test
 		t.Run(fmt.Sprintf("%02d", i), func(t *testing.T) {
 			t.Parallel()
 
@@ -936,7 +932,6 @@ func TestSetAttributeValue(t *testing.T) {
 	}
 
 	for i, test := range tests {
-		test := test
 		t.Run(fmt.Sprintf("%02d", i), func(t *testing.T) {
 			t.Parallel()
 
@@ -981,7 +976,6 @@ func TestRemoveAttribute(t *testing.T) {
 	}
 
 	for i, test := range tests {
-		test := test
 		t.Run(fmt.Sprintf("%02d", i), func(t *testing.T) {
 			t.Parallel()
 
@@ -1022,7 +1016,6 @@ func TestClick(t *testing.T) {
 	}
 
 	for i, test := range tests {
-		test := test
 		t.Run(fmt.Sprintf("%02d", i), func(t *testing.T) {
 			t.Parallel()
 
@@ -1060,7 +1053,6 @@ func TestDoubleClick(t *testing.T) {
 	}
 
 	for i, test := range tests {
-		test := test
 		t.Run(fmt.Sprintf("%02d", i), func(t *testing.T) {
 			t.Parallel()
 
@@ -1101,7 +1093,6 @@ func TestSendKeys(t *testing.T) {
 	}
 
 	for i, test := range tests {
-		i, test := i, test
 		t.Run(fmt.Sprintf("%02d", i), func(t *testing.T) {
 			if runtime.GOOS == "darwin" && i == 5 {
 				t.Skipf("skipping test %d on darwin -- FIXME!", i)
@@ -1142,7 +1133,6 @@ func TestSubmit(t *testing.T) {
 	}
 
 	for i, test := range tests {
-		test := test
 		t.Run(fmt.Sprintf("%02d", i), func(t *testing.T) {
 			t.Parallel()
 
@@ -1180,7 +1170,6 @@ func TestComputedStyle(t *testing.T) {
 	}
 
 	for i, test := range tests {
-		test := test
 		t.Run(fmt.Sprintf("%02d", i), func(t *testing.T) {
 			t.Parallel()
 
@@ -1232,7 +1221,6 @@ func TestMatchedStyle(t *testing.T) {
 	}
 
 	for i, test := range tests {
-		test := test
 		t.Run(fmt.Sprintf("%02d", i), func(t *testing.T) {
 			t.Parallel()
 
@@ -1409,7 +1397,6 @@ func TestSVGFullXPath(t *testing.T) {
 	}
 
 	for i, test := range tests {
-		test := test
 		t.Run(fmt.Sprintf("%02d", i), func(t *testing.T) {
 			t.Parallel()
 
@@ -1475,7 +1462,7 @@ func TestWaitReadyReuseAction(t *testing.T) {
 
 	// Reusing a single WaitReady action used to panic.
 	action := WaitReady("#input2", ByID)
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		if err := Run(ctx, action); err != nil {
 			t.Fatalf("got error: %v", err)
 		}

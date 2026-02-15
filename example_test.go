@@ -13,14 +13,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/chromedp/chromedp"
-	"github.com/chromedp/chromedp/device"
-
 	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/cdproto/dom"
 	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/cdproto/runtime"
 	"github.com/chromedp/cdproto/target"
+	"github.com/chromedp/chromedp"
+	"github.com/chromedp/chromedp/device"
 )
 
 func writeHTML(content string) http.Handler {
@@ -177,7 +176,7 @@ func ExampleNewContext_reuseBrowser() {
 		log.Fatal(err)
 	}
 
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		func() {
 			ctx, cancel := context.WithTimeout(ctx, time.Second)
 			defer cancel()
@@ -244,7 +243,7 @@ func ExampleListenTarget_consoleLog() {
 	defer ts.Close()
 
 	gotException := make(chan bool, 1)
-	chromedp.ListenTarget(ctx, func(ev interface{}) {
+	chromedp.ListenTarget(ctx, func(ev any) {
 		switch ev := ev.(type) {
 		case *runtime.EventConsoleAPICalled:
 			fmt.Printf("* console.%s call:\n", ev.Type)
@@ -326,7 +325,7 @@ func ExampleListenTarget_acceptAlert() {
 	`))
 	defer ts.Close()
 
-	chromedp.ListenTarget(ctx, func(ev interface{}) {
+	chromedp.ListenTarget(ctx, func(ev any) {
 		if ev, ok := ev.(*page.EventJavascriptDialogOpening); ok {
 			fmt.Println("closing alert:", ev.Message)
 			go func() {
@@ -741,7 +740,6 @@ func ExampleEvaluate() {
 	// Output:
 	// 3
 	// encountered an undefined value
-	// encountered a null value
 	// <nil>
 	// [1 2]
 	// slice is nil: true

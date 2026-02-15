@@ -15,6 +15,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -137,7 +138,7 @@ func testAllocateSeparate(tb testing.TB) (context.Context, context.CancelFunc) {
 	if err := Run(ctx); err != nil {
 		tb.Fatal(err)
 	}
-	ListenBrowser(ctx, func(ev interface{}) {
+	ListenBrowser(ctx, func(ev any) {
 		if ev, ok := ev.(*runtime.EventExceptionThrown); ok {
 			tb.Errorf("%+v\n", ev.ExceptionDetails)
 		}
@@ -338,7 +339,7 @@ func TestConcurrentCancel(t *testing.T) {
 
 	var wg sync.WaitGroup
 	// 50 is enough for 'go test -race' to easily spot issues.
-	for i := 0; i < 50; i++ {
+	for range 50 {
 		wg.Add(2)
 		ctx, cancel := NewContext(allocCtx)
 		go func() {
@@ -362,7 +363,7 @@ func TestListenBrowser(t *testing.T) {
 	// Check that many ListenBrowser callbacks work, including adding
 	// callbacks after the browser has been allocated.
 	var totalCount int32
-	ListenBrowser(ctx, func(ev interface{}) {
+	ListenBrowser(ctx, func(ev any) {
 		// using sync/atomic, as the browser is shared.
 		atomic.AddInt32(&totalCount, 1)
 	})
@@ -370,7 +371,7 @@ func TestListenBrowser(t *testing.T) {
 		t.Fatal(err)
 	}
 	seenSessions := make(map[target.SessionID]bool)
-	ListenBrowser(ctx, func(ev interface{}) {
+	ListenBrowser(ctx, func(ev any) {
 		if ev, ok := ev.(*target.EventAttachedToTarget); ok {
 			seenSessions[ev.SessionID] = true
 		}
@@ -399,7 +400,7 @@ func TestListenTarget(t *testing.T) {
 	// Check that many listen callbacks work, including adding callbacks
 	// after the target has been attached to.
 	var navigatedCount, updatedCount int
-	ListenTarget(ctx, func(ev interface{}) {
+	ListenTarget(ctx, func(ev any) {
 		if _, ok := ev.(*page.EventFrameNavigated); ok {
 			navigatedCount++
 		}
@@ -407,7 +408,7 @@ func TestListenTarget(t *testing.T) {
 	if err := Run(ctx); err != nil {
 		t.Fatal(err)
 	}
-	ListenTarget(ctx, func(ev interface{}) {
+	ListenTarget(ctx, func(ev any) {
 		if _, ok := ev.(*dom.EventDocumentUpdated); ok {
 			updatedCount++
 		}
@@ -437,7 +438,7 @@ func TestLargeEventCount(t *testing.T) {
 	// make the test fail somewhat reliably on old chromedp versions,
 	// without making the test too slow.
 	first := true
-	ListenTarget(ctx, func(ev interface{}) {
+	ListenTarget(ctx, func(ev any) {
 		if _, ok := ev.(*runtime.EventConsoleAPICalled); ok && first {
 			time.Sleep(50 * time.Millisecond)
 			first = false
@@ -460,7 +461,7 @@ func TestLargeQuery(t *testing.T) {
 
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "<html><body>\n")
-		for i := 0; i < 2000; i++ {
+		for i := range 2000 {
 			fmt.Fprintf(w, `<div>`)
 			fmt.Fprintf(w, `<a href="/%d">link %d</a>`, i, i)
 			fmt.Fprintf(w, `</div>`)
@@ -494,8 +495,7 @@ func TestDialTimeout(t *testing.T) {
 		url := "ws://" + l.(*net.TCPListener).Addr().String()
 		defer l.Close()
 
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
+		ctx := t.Context()
 		_, err = NewBrowser(ctx, url, WithDialTimeout(time.Microsecond))
 		got, want := fmt.Sprintf("%v", err), "i/o timeout"
 		if !strings.Contains(got, want) {
@@ -517,8 +517,7 @@ func TestDialTimeout(t *testing.T) {
 			}
 		}()
 
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
+		ctx := t.Context()
 		_, err = NewBrowser(ctx, url, WithDialTimeout(0))
 		got := fmt.Sprintf("%v", err)
 		if !strings.Contains(got, "EOF") && !strings.Contains(got, "connection reset") {
@@ -537,13 +536,13 @@ func TestListenCancel(t *testing.T) {
 	var browserCount, targetCount int
 
 	ctx1, cancel1 := context.WithCancel(ctx)
-	ListenBrowser(ctx1, func(ev interface{}) {
+	ListenBrowser(ctx1, func(ev any) {
 		browserCount++
 		cancel1()
 	})
 
 	ctx2, cancel2 := context.WithCancel(ctx)
-	ListenTarget(ctx2, func(ev interface{}) {
+	ListenTarget(ctx2, func(ev any) {
 		targetCount++
 		cancel2()
 	})
@@ -564,7 +563,7 @@ func TestLogOptions(t *testing.T) {
 
 	var bufMu sync.Mutex
 	var buf bytes.Buffer
-	fn := func(format string, a ...interface{}) {
+	fn := func(format string, a ...any) {
 		bufMu.Lock()
 		fmt.Fprintf(&buf, format, a...)
 		fmt.Fprintln(&buf)
@@ -857,17 +856,16 @@ func TestBrowserContext(t *testing.T) {
 			wantPanic:    "",
 		},
 	}
-	for _, tt := range tests {
-		tt := tt
-		t.Run(tt.name, func(t *testing.T) {
-			if tt.wantPanic != "" {
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if test.wantPanic != "" {
 				defer func() {
-					if got := fmt.Sprint(recover()); got != tt.wantPanic {
-						t.Errorf("want panic %q, got %q", tt.wantPanic, got)
+					if got := fmt.Sprint(recover()); got != test.wantPanic {
+						t.Errorf("want panic %q, got %q", test.wantPanic, got)
 					}
 				}()
 			}
-			ctx, cancel, want := tt.arrange(t)
+			ctx, cancel, want := test.arrange(t)
 			defer cancel()
 
 			got := getBrowserContext(t, ctx)
@@ -905,10 +903,10 @@ func TestBrowserContext(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			disposed := !contains(ids, want)
+			disposed := !slices.Contains(ids, want)
 
-			if disposed != tt.wantDisposed {
-				t.Errorf("browser context disposed = %v, want %v", disposed, tt.wantDisposed)
+			if disposed != test.wantDisposed {
+				t.Errorf("browser context disposed = %v, want %v", disposed, test.wantDisposed)
 			}
 		})
 	}
@@ -952,7 +950,7 @@ func TestDirectCloseTarget(t *testing.T) {
 	want := "to close the target, cancel its context"
 
 	// Check that nothing is closed by running the action twice.
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		err := Run(ctx, ActionFunc(func(ctx context.Context) error {
 			return target.CloseTarget(c.Target.TargetID).Do(ctx)
 		}))
@@ -973,7 +971,7 @@ func TestDirectCloseBrowser(t *testing.T) {
 	want := "use chromedp.Cancel"
 
 	// Check that nothing is closed by running the action twice.
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		err := browser.Close().Do(cdp.WithExecutor(ctx, c.Browser))
 		got := fmt.Sprint(err)
 		if !strings.Contains(got, want) {
@@ -1003,7 +1001,7 @@ func TestDownloadIntoDir(t *testing.T) {
 	defer s.Close()
 
 	done := make(chan string, 1)
-	ListenTarget(ctx, func(v interface{}) {
+	ListenTarget(ctx, func(v any) {
 		if ev, ok := v.(*browser.EventDownloadProgress); ok {
 			if ev.State == browser.DownloadProgressStateCompleted {
 				done <- ev.GUID
@@ -1116,7 +1114,7 @@ func TestAttachingToWorkers(t *testing.T) {
 
 			ch := make(chan target.ID, 1)
 
-			ListenTarget(ctx, func(ev interface{}) {
+			ListenTarget(ctx, func(ev any) {
 				if ev, ok := ev.(*target.EventAttachedToTarget); ok {
 					if !strings.Contains(ev.TargetInfo.Type, "worker") {
 						return
@@ -1292,7 +1290,6 @@ func TestRunResponse(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		allocate := func(t *testing.T) context.Context {
 			ctx, cancel := testAllocate(t, "")
 			t.Cleanup(cancel)
@@ -1516,7 +1513,7 @@ func TestPDFTemplate(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	want := []byte("PDF Template -- about:blank" + "(1 / 1)" + "Hello World!")
+	want := []byte("Hello World!PDF Template -- about:blank(1 / 1)")
 	l := len(want)
 	// try to reuse buf
 	if len(buf) >= l {
@@ -1535,11 +1532,39 @@ func TestPDFTemplate(t *testing.T) {
 	}
 }
 
-func contains(v []cdp.BrowserContextID, id cdp.BrowserContextID) bool {
-	for _, i := range v {
-		if i == id {
-			return true
-		}
+// regression test for https://github.com/chromedp/chromedp/issues/1551
+func TestPDFBackground(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := testAllocate(t, "")
+	defer cancel()
+
+	var buf []byte
+	if err := Run(ctx,
+		Navigate("about:blank"),
+		ActionFunc(func(ctx context.Context) error {
+			frameTree, err := page.GetFrameTree().Do(ctx)
+			if err != nil {
+				return err
+			}
+			return page.SetDocumentContent(frameTree.Frame.ID, `
+				<html lang="en">
+					<head></head>
+					<body style="background-color:green">
+						<p>Lorem ipsum</p>
+					</body>
+				</html>
+			`).Do(ctx)
+		}),
+		ActionFunc(func(ctx context.Context) error {
+			var err error
+			buf, _, err = page.PrintToPDF().Do(ctx)
+			return err
+		}),
+	); err != nil {
+		t.Fatal(err)
 	}
-	return false
+	if err := os.WriteFile("background.pdf", buf, 0o644); err != nil {
+		t.Fatal(err)
+	}
 }

@@ -112,14 +112,13 @@ func TestCloseDialog(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
 			ctx, cancel := testAllocate(t, "")
 			defer cancel()
 
-			ListenTarget(ctx, func(ev interface{}) {
+			ListenTarget(ctx, func(ev any) {
 				switch e := ev.(type) {
 				case *page.EventJavascriptDialogOpening:
 					if e.Type != test.dialogType {
